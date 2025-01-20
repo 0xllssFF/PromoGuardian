@@ -21,7 +21,6 @@ class YouxuanDataset(DGLDataset):
         self.df_edges_data = df_edges_data
         self.node_feat_size = node_feat_size
         self.edge_feat_names = edge_feat_names
-        # self.jensen_shannon_values = jensen_shannon_values
         self.mode = mode
         super().__init__(name="youxuan")
 
@@ -54,7 +53,6 @@ class YouxuanDataset(DGLDataset):
         return self.graph
 
     def __len__(self):
-        # return len(self.graphs)
         return 1
     
 # saved version
@@ -133,14 +131,9 @@ transformed_node_feature_size = 52 # Example transformed feature size for each n
 edge_feature_size = 64  # Example feature size for each edge
 attention_size = 8     # Size of the intermediate attention representation
 encoding_dim = 16        # Size of the encoded representation
-# latent_dim = 10  # Size of the latent space
 attention_layer_num = 3
-dropout = 0.5
 learning_rate = 1e-4
 w_d = 1e-8
-betas = (0.9, 0.999)  # Typical beta values for Adam
-eps = 1e-8  # Small value for numerical stability
-num_epochs = 3000
 
 
 # Instantiate models
@@ -203,7 +196,6 @@ ano_idx = ano_idx.to('cpu')
 anomaly_score = anomaly_score.to('cpu').detach().numpy()
 print(len(ano_idx))
 
-# for l in anomaly_score[:100]:
 print(f"{anomaly_score[-1]:.15f}")
 
 
@@ -218,43 +210,11 @@ json.dump(node_anomaly_score, open('node_anomaly_score.json', 'w'))
 node_idx2userid = []
 for idx in ano_idx:
     node_idx2userid.append(int(test_g.ndata['id'][idx].to('cpu')))
-# print(node_idx2userid)
-
-def find_growth_start_with_window(sequence, window_size):
-    if not sequence or window_size <= 0:
-        return -1  # 无效的输入
-
-    n = len(sequence)
-    if window_size > n:
-        return -1  # 窗口大小大于序列长度
-
-    # 遍历序列，使用滑动窗口检测连续增长
-    for i in range(n - window_size + 1):
-        window = sequence[i:i + window_size]
-        if all(window[j] < window[j + 1] for j in range(len(window) - 1)):
-            return i  # 返回连续增长窗口的起始索引
-
-    return -1  # 如果没有找到连续增长的窗口，返回-1
-
-# 窗口大小
-window_size = 10000
-
-# 调用函数并打印结果
-start_index = find_growth_start_with_window(node_idx2userid, window_size)
-
-if start_index != -1:
-    print(f"序列从索引 {start_index} 开始的窗口开始连续增长。")
-else:
-    print("序列中没有找到连续增长的窗口。")
-    
-node_idx2userid = node_idx2userid[:]
 
 f = open('result-relabel.txt', 'w')
 for item in node_idx2userid:
     f.write(str(item) + '\n')
 f.close()
-
-
 
 initial_nodes = []
 with open('result-relabel.txt', 'r') as file:
@@ -274,10 +234,7 @@ G = nx.Graph()
 for i, edge in enumerate(edges):
     G.add_edge(edge[0], edge[1], weight=weights_list[i])
 
-# 初始化所有节点的分数为0
 node_scores = dict.fromkeys(G.nodes, 0)
-
-# 设置初始节点的分数为1
 for node in initial_nodes:
     if node in G.nodes:
         node_scores[node] = 1.0
@@ -306,7 +263,6 @@ high_score_nodes = {node for node, score in node_scores.items() if score >= 0.65
 
 result_df = pd.DataFrame(list(high_score_nodes), columns=['Node'])
 result_df.to_csv('high_score_nodes.csv', index=False)
-print("分数大于thres的节点已成功保存到 high_score_nodes.csv")
 
 def calculate_metrics(high_score_path, node_csv_path):
     high_score_df = pd.read_csv(high_score_path)
@@ -324,7 +280,6 @@ def calculate_metrics(high_score_path, node_csv_path):
         y_true.append(1 if true_label == 1 else 0)
         y_pred.append(1 if id in predicted_positive_nodes else 0)
 
-    # 计算 precision, recall, 和 accuracy
     precision = precision_score(y_true, y_pred)
     recall = recall_score(y_true, y_pred)
     accuracy = accuracy_score(y_true, y_pred)
